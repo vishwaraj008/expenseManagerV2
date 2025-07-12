@@ -35,34 +35,28 @@ export default async function handler(req, res) {
 
     // Check if user is authorized
     if (ALLOWED_USER_IDS.length > 0 && !ALLOWED_USER_IDS.includes(userId)) {
-      await sendMessage(chatId, '🚫 Access denied. You are not authorized to use this bot.');
+      await sendMessage(chatId, 'Access denied. You are not authorized to use this bot.');
       return res.status(200).json({ ok: true });
     }
 
     console.log(`Processing message from chatId ${chatId}, userId ${userId}: ${text}`);
 
     // Handle start command
-    if (text === '/start') {
+    if (text === '/start' || text === 'Start') {
       const config = await getConfig();
-      const itemsList = Object.keys(config).map(item => `• ${item} - ₹${config[item]}`).join('\n');
-      await sendMessageWithKeyboard(chatId, `👋 Welcome to your Daily Expense Bot!\n\nAvailable items:\n${itemsList}\n\nSend messages like:\n- "2 chai"\n- "1 samosa and 1 chips"\n- "get me connect"\n\nOr use the buttons below:`);
+      const itemsList = Object.keys(config).map(item => `- ${item} - Rs.${config[item]}`).join('\n');
+      await sendMessageWithKeyboard(chatId, `Welcome to your Daily Expense Bot!\n\nAvailable items:\n${itemsList}\n\nSend messages like:\n- "2 chai"\n- "chaar chai"\n- "five tea"\n- "teen samosa"\n\nOr use the buttons below:`);
       return res.status(200).json({ ok: true });
     }
 
     // Handle total command (both slash command and button)
-    if (text === '/total' || text === '📊 Total') {
+    if (text === '/total' || text === 'Total') {
       await handleTotal(chatId);
       return res.status(200).json({ ok: true });
     }
 
-    // Handle checkout command (both slash command and button)
-    if (text === '/checkout' || text === '🛍️ Checkout') {
-      await handleCheckout(chatId);
-      return res.status(200).json({ ok: true });
-    }
-
     // Handle reset command (both slash command and button)
-    if (text === '/reset' || text === '🔄 Reset') {
+    if (text === '/reset' || text === 'Reset') {
       await handleReset(chatId);
       return res.status(200).json({ ok: true });
     }
@@ -95,33 +89,32 @@ async function processExpense(chatId, text) {
       const itemLower = item.toLowerCase();
       
       if (!config[itemLower]) {
-        totalAdded += `⚠️ Unknown item: ${item}\n`;
-        continue;
+        continue; // Skip unknown items silently
       }
       
       userData[itemLower] = (userData[itemLower] || 0) + quantity;
       const cost = config[itemLower] * quantity;
       totalCost += cost;
-      totalAdded += `✅ ${quantity} x ${item} (₹${cost})\n`;
+      totalAdded += `Added: ${quantity} x ${item} (Rs.${cost})\n`;
     }
     
     // Save updated user data
     const saved = await setUserData(chatId, userData);
     
     if (totalAdded.trim()) {
-      totalAdded += `\n💰 Total cost: ₹${totalCost}`;
+      totalAdded += `\nTotal cost: Rs.${totalCost}`;
       await sendMessage(chatId, totalAdded.trim());
     } else {
-      await sendMessage(chatId, 'No known items found. Try "2 chai" or "1 samosa".');
+      await sendMessage(chatId, 'No valid items found. Try "2 chai" or "chaar samosa".');
     }
     
     if (!saved) {
-      await sendMessage(chatId, '⚠️ Warning: Data may not have been saved properly.');
+      await sendMessage(chatId, 'Warning: Data may not have been saved properly.');
     }
     
   } catch (error) {
     console.error('LLM parse error:', error);
-    await sendMessage(chatId, 'Could not understand. Try "2 chai" or "1 samosa".');
+    await sendMessage(chatId, 'Could not understand. Try "2 chai" or "teen samosa".');
   }
 }
 
@@ -142,48 +135,15 @@ async function handleTotal(chatId) {
       const price = config[item] || 0;
       const cost = price * quantity;
       grandTotal += cost;
-      totalMessage += `• ${quantity} x ${item} = ₹${cost}\n`;
+      totalMessage += `- ${quantity} x ${item} = Rs.${cost}\n`;
     }
     
-    totalMessage += `\n💰 Grand Total: ₹${grandTotal}`;
+    totalMessage += `\nGrand Total: Rs.${grandTotal}`;
     await sendMessage(chatId, totalMessage);
     
   } catch (error) {
     console.error('Total calculation error:', error);
-    await sendMessage(chatId, '❌ Error calculating total.');
-  }
-}
-
-async function handleCheckout(chatId) {
-  try {
-    const config = await getConfig();
-    const userData = await getUserData(chatId);
-    
-    if (Object.keys(userData).length === 0) {
-      await sendMessage(chatId, '🛍️ No items to checkout.');
-      return;
-    }
-    
-    let checkoutMessage = '🛍️ Checkout Summary:\n\n';
-    let grandTotal = 0;
-    
-    for (const [item, quantity] of Object.entries(userData)) {
-      const price = config[item] || 0;
-      const cost = price * quantity;
-      grandTotal += cost;
-      checkoutMessage += `• ${quantity} x ${item} = ₹${cost}\n`;
-    }
-    
-    checkoutMessage += `\n💵 Total Amount: ₹${grandTotal}\n\n✅ Order confirmed! Your items will be prepared.`;
-    
-    await sendMessage(chatId, checkoutMessage);
-    
-    // Reset user data after checkout
-    await resetUserData(chatId);
-    
-  } catch (error) {
-    console.error('Checkout error:', error);
-    await sendMessage(chatId, '❌ Error processing checkout.');
+    await sendMessage(chatId, 'Error calculating total.');
   }
 }
 
@@ -191,13 +151,13 @@ async function handleReset(chatId) {
   try {
     const reset = await resetUserData(chatId);
     if (reset) {
-      await sendMessage(chatId, '🔄 Your daily expenses have been reset.');
+      await sendMessage(chatId, 'Your daily expenses have been reset.');
     } else {
-      await sendMessage(chatId, '❌ Error resetting expenses.');
+      await sendMessage(chatId, 'Error resetting expenses.');
     }
   } catch (error) {
     console.error('Reset error:', error);
-    await sendMessage(chatId, '❌ Error resetting expenses.');
+    await sendMessage(chatId, 'Error resetting expenses.');
   }
 }
 
@@ -208,8 +168,8 @@ async function sendMessage(chatId, text) {
   // Always include keyboard to keep it persistent
   const keyboard = {
     keyboard: [
-      [{ text: '📊 Total' }, { text: '🛍️ Checkout' }],
-      [{ text: '🔄 Reset' }]
+      [{ text: 'Total' }, { text: 'Start' }],
+      [{ text: 'Reset' }]
     ],
     resize_keyboard: true,
     one_time_keyboard: false

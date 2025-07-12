@@ -76,20 +76,17 @@ ${itemPrices}
 AVAILABLE ITEMS LIST: ${itemsList}
 
 INTENT UNDERSTANDING RULES:
-1. ONLY extract items from the available list above
-2. If user mentions an item NOT in the list, completely ignore it (don't include in response)
-3. if quantity is specified as 0 than its ignored
-4. If no quantity specified, assume quantity = 1
-5. Handle natural language: "give me", "I want", "bring", "get me", etc.
-6. Handle plurals and variations based on available items
+Try understanding what user want to say. suppose user don't know how to interact clearly, so to understand user intent
 
 EXAMPLES:
-✅ "2 chai" → {"items": [{"item": "chai", "quantity": 2}]}
-✅ "I want 3 items and 1 other" → Extract only available items
-✅ "get me chai" → {"items": [{"item": "chai", "quantity": 1}]}
-✅ "2 items please" → Extract based on available items
-❌ "unknown_item and 2 chai" → {"items": [{"item": "chai", "quantity": 2}]} (unknown ignored)
-❌ "just checking" → {"items": []} (no valid items)
+"2 chai" → {"items": [{"item": "chai", "quantity": 2}]}
+"chaar chai" → {"items": [{"item": "chai", "quantity": 4}]}
+"five tea" → {"items": [{"item": "chai", "quantity": 5}]}
+"teen samosa" → {"items": [{"item": "samosa", "quantity": 3}]}
+"do chips aur ek chai" → {"items": [{"item": "chips", "quantity": 2}, {"item": "chai", "quantity": 1}]}
+"get me chai" → {"items": [{"item": "chai", "quantity": 1}]}
+"unknown_item and 2 chai" → {"items": [{"item": "chai", "quantity": 2}]} (unknown ignored)
+"just checking" → {"items": []} (no valid items)
 
 RESPONSE FORMAT: Return ONLY valid JSON with this exact structure:
 {
