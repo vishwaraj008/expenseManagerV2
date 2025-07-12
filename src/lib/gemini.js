@@ -5,7 +5,15 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_TIMEOUT = 8000; // 8 seconds timeout to leave buffer for other operations
 
 // Fallback regex parser for simple patterns
-function fallbackParser(text) {
+function fallbackParser(text, availableItems = []) {
+  const validItems = availableItems.length > 0 ? availableItems : ['chai', 'chips', 'choti', 'connect', 'samosa'];
+  const itemVariations = {
+    'tea': 'chai',
+    'chip': 'chips',
+    'chais': 'chai',
+    'samosas': 'samosa'
+  };
+  
   const patterns = [
     /(?:(\d+)\s+)?(\w+)/g,
     /(?:(\d+)\s*x\s*)?(\w+)/g,
@@ -13,14 +21,29 @@ function fallbackParser(text) {
   ];
   
   const items = [];
+  const foundItems = new Set();
+  
   for (const pattern of patterns) {
     const matches = [...text.matchAll(pattern)];
     if (matches.length > 0) {
       for (const match of matches) {
-        const quantity = parseInt(match[1]) || 1;
-        const item = match[2].toLowerCase();
-        if (item && quantity > 0) {
+        let quantity = parseInt(match[1]);
+        let item = match[2].toLowerCase();
+        
+        // Handle item variations
+        if (itemVariations[item]) {
+          item = itemVariations[item];
+        }
+        
+        // Only include valid items with quantity > 0
+        if (validItems.includes(item) && !foundItems.has(item)) {
+          if (isNaN(quantity) || quantity === null || quantity === undefined) {
+            quantity = 1; // Default to 1 if no quantity specified
+          } else if (quantity <= 0) {
+            continue; // Skip items with 0 or negative quantity
+          }
           items.push({ item, quantity });
+          foundItems.add(item);
         }
       }
       break;
@@ -30,35 +53,49 @@ function fallbackParser(text) {
   return { items };
 }
 
-export async function parseInput(text) {
+export async function parseInput(text, config = {}) {
+  // Get available items from config
+  const availableItems = Object.keys(config);
+  
   // First try fallback parser for simple cases
-  const fallbackResult = fallbackParser(text);
+  const fallbackResult = fallbackParser(text, availableItems);
   if (fallbackResult.items.length > 0) {
     console.log('Using fallback parser');
     return fallbackResult;
   }
   
+  const itemsList = availableItems.join(', ');
+  const itemPrices = availableItems.map(item => `${item} - ₹${config[item]}`).join('\n');
+  
   const prompt = `
-You are a smart assistant that extracts item names and quantities from user inputs for expense tracking.
+You are an intelligent expense tracking assistant. Analyze user messages to understand their intent and extract food item orders.
 
-Known items: chai, chips, choti, connect, samosa
+AVAILABLE ITEMS WITH PRICES:
+${itemPrices}
 
-Rules:
-1. Extract item names and quantities only
-2. Only recognize the 5 known items above
-3. Default quantity is 0 if not specified
-4. Ignore extra words like "please", "give me", etc.
-5. If an item is not in the known list, ignore it
+AVAILABLE ITEMS LIST: ${itemsList}
 
-Examples:
-Input: "2 chai" → { "items": [{ "item": "chai", "quantity": 2 }] }
-Input: "1 samosa and 1 chai" → { "items": [{ "item": "samosa", "quantity": 1 }, { "item": "chai", "quantity": 1 }] }
-Input: "give me 3 chips" → { "items": [{ "item": "chips", "quantity": 3 }] }
+INTENT UNDERSTANDING RULES:
+1. ONLY extract items from the available list above
+2. If user mentions an item NOT in the list, completely ignore it (don't include in response)
+3. if quantity is specified as 0 than its ignored
+4. If no quantity specified, assume quantity = 1
+5. Handle natural language: "give me", "I want", "bring", "get me", etc.
+6. Handle plurals and variations based on available items
 
-Respond ONLY with valid JSON:
+EXAMPLES:
+✅ "2 chai" → {"items": [{"item": "chai", "quantity": 2}]}
+✅ "I want 3 items and 1 other" → Extract only available items
+✅ "get me chai" → {"items": [{"item": "chai", "quantity": 1}]}
+✅ "2 items please" → Extract based on available items
+❌ "unknown_item and 2 chai" → {"items": [{"item": "chai", "quantity": 2}]} (unknown ignored)
+❌ "just checking" → {"items": []} (no valid items)
+
+RESPONSE FORMAT: Return ONLY valid JSON with this exact structure:
 {
   "items": [
-    { "item": "chai", "quantity": 2 }
+    {"item": "chai", "quantity": 2},
+    {"item": "samosa", "quantity": 1}
   ]
 }
 
@@ -111,20 +148,21 @@ User input: "${text}"
       throw new Error('Invalid response format from Gemini');
     }
     
-    // Validate each item
+    // Validate each item and filter to only available items
+    const validItems = [];
     for (const item of parsed.items) {
-      if (!item.item || typeof item.quantity !== 'number' || item.quantity <= 0) {
-        throw new Error('Invalid item format in Gemini response');
+      if (item.item && typeof item.quantity === 'number' && item.quantity > 0 && availableItems.includes(item.item)) {
+        validItems.push(item);
       }
     }
     
     console.log('Gemini parsing successful');
-    return parsed;
+    return { items: validItems };
     
   } catch (error) {
     console.error('Gemini parsing failed:', error.message);
-    // Fallback to regex parser
-    const fallbackResult = fallbackParser(text);
+    // Fallback to regex parser with available items filter
+    const fallbackResult = fallbackParser(text, availableItems);
     if (fallbackResult.items.length > 0) {
       console.log('Using fallback parser after Gemini failure');
       return fallbackResult;

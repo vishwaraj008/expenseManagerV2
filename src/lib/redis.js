@@ -20,13 +20,7 @@ export async function getConfig() {
   } catch (error) {
     console.error('Redis get config error:', error);
     // Return default config if Redis fails
-    return {
-      chai: 10,
-      chips: 10,
-      choti: 10,
-      connect: 15,
-      samosa: 15
-    };
+    return 
   }
 }
 
