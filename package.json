@@ -1,0 +1,10 @@
+{
+  "name": "telegram-expense-bot",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@upstash/redis": "^1.35.1",
+    "dotenv": "^16.6.1",
+    "node-fetch": "^3.3.2"
+  }
+}
