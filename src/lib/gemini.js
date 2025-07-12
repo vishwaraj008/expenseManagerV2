@@ -77,6 +77,15 @@ AVAILABLE ITEMS LIST: ${itemsList}
 
 INTENT UNDERSTANDING RULES:
 Try understanding what user want to say. suppose user don't know how to interact clearly, so to understand user intent
+1. ONLY extract items from the available list above
+2. If user mentions an item NOT in the list, completely ignore it (don't include in response)
+3. If quantity is specified as 0 than its ignored
+4. If no quantity specified, assume quantity = 1
+5. Handle natural language: "give me", "I want", "bring", "get me", etc.
+6. Handle plurals and variations based on available items
+7. Handle multilingual numbers (Hindi/English): "chaar" = 4, "paanch" = 5, "teen" = 3, "do" = 2, "ek" = 1, "chheh" = 6, "saat" = 7, "aath" = 8, "nau" = 9, "das" = 10
+8. Handle English number words: "one" = 1, "two" = 2, "three" = 3, "four" = 4, "five" = 5, "six" = 6, "seven" = 7, "eight" = 8, "nine" = 9, "ten" = 10
+9. Handle item variations: "tea" = "chai", "chips" can be "chip"
 
 EXAMPLES:
 "2 chai" → {"items": [{"item": "chai", "quantity": 2}]}
